@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+# Manage convention packs for devenv
+set -euo pipefail
+
+PACKS_DIR="$HOME/.claude/convention-packs"
+LAYERS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/devenv/convention-layers"
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+ok() { echo "  [ ok ] $1"; }
+warn() { echo "  [warn] $1"; }
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+ensure_layers_file() {
+  mkdir -p "$(dirname "$LAYERS_FILE")"
+  [[ -f "$LAYERS_FILE" ]] || touch "$LAYERS_FILE"
+}
+
+# Find the repo root for this script (walk up to .git)
+find_repo_root() {
+  local dir="$1"
+  while [[ "$dir" != "/" ]]; do
+    [[ -d "$dir/.git" ]] && echo "$dir" && return
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+# List pack directories in a repo (excluding _template)
+list_packs_in() {
+  local repo_dir="$1"
+  local packs_dir="$repo_dir/packs"
+  [[ -d "$packs_dir" ]] || return 0
+  for pack in "$packs_dir"/*/; do
+    [[ -d "$pack" ]] || continue
+    local name
+    name="$(basename "$pack")"
+    [[ "$name" == _template ]] && continue
+    echo "$name"
+  done
+}
+
+# Print the current layer list numbered by precedence
+print_layers() {
+  if [[ ! -f "$LAYERS_FILE" ]] || [[ ! -s "$LAYERS_FILE" ]]; then
+    echo "  No active layers."
+    return
+  fi
+  local i=1
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    local name
+    name="$(basename "$line")"
+    if [[ -d "$line" ]]; then
+      echo "  $i. $name  ($line)"
+    else
+      echo "  $i. $name  ($line) (missing)"
+    fi
+    i=$((i + 1))
+  done <"$LAYERS_FILE"
+}
+
+# ── Commands ─────────────────────────────────────────────────────────────────
+
+cmd_install() {
+  mkdir -p "$PACKS_DIR"
+
+  # Find this script's repo and register it
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local repo_root
+  if repo_root="$(find_repo_root "$script_dir")"; then
+    local repo_name
+    repo_name="$(basename "$repo_root")"
+    local dst="$PACKS_DIR/$repo_name"
+
+    if [[ -L "$dst" ]] && [[ "$(readlink "$dst")" == "$repo_root" ]]; then
+      ok "Already registered: $repo_name"
+    else
+      [[ -L "$dst" ]] && rm "$dst"
+      ln -sf "$repo_root" "$dst"
+      ok "Registered: $repo_name → $repo_root"
+    fi
+
+    echo ""
+    echo "  Available packs:"
+    list_packs_in "$repo_root" | while read -r pack; do
+      echo "    - $pack"
+    done
+  else
+    warn "Could not detect repo root — register manually by symlinking into $PACKS_DIR"
+  fi
+
+  ensure_layers_file
+  ok "Layers file: $LAYERS_FILE"
+}
+
+cmd_clone() {
+  local url="$1"
+  local repo_name
+  repo_name="$(basename "$url" .git)"
+  local dst="$PACKS_DIR/$repo_name"
+
+  mkdir -p "$PACKS_DIR"
+
+  if [[ -d "$dst" ]] || [[ -L "$dst" ]]; then
+    warn "Already exists: $dst"
+    echo "  Run 'devenv-conventions update' to pull latest changes."
+    return 1
+  fi
+
+  git clone "$url" "$dst"
+  ok "Cloned: $repo_name"
+
+  echo ""
+  echo "  Available packs:"
+  list_packs_in "$dst" | while read -r pack; do
+    echo "    - $pack"
+  done
+  echo ""
+  echo "  Run 'devenv-conventions enable <pack>' to activate."
+}
+
+cmd_enable() {
+  local pack_name="$1"
+  ensure_layers_file
+
+  # Find the pack across all registered repos
+  local pack_path=""
+  for repo in "$PACKS_DIR"/*/; do
+    [[ -d "$repo" ]] || continue
+    # Resolve symlinks to find the actual repo
+    local real_repo
+    real_repo="$(cd "$repo" && pwd -P)"
+    local candidate="$real_repo/packs/$pack_name"
+    if [[ -d "$candidate" ]]; then
+      pack_path="$candidate"
+      break
+    fi
+  done
+
+  if [[ -z "$pack_path" ]]; then
+    echo "  Pack not found: $pack_name"
+    echo "  Run 'devenv-conventions list' to see available packs."
+    return 1
+  fi
+
+  if grep -qFx "$pack_path" "$LAYERS_FILE" 2>/dev/null; then
+    ok "Already enabled: $pack_name"
+  else
+    echo "$pack_path" >>"$LAYERS_FILE"
+    ok "Enabled: $pack_name"
+  fi
+
+  echo ""
+  echo "  Active layers (highest precedence first):"
+  print_layers
+}
+
+cmd_disable() {
+  local pack_name="$1"
+  ensure_layers_file
+
+  if ! grep -q "/$pack_name$" "$LAYERS_FILE" 2>/dev/null; then
+    warn "Not active: $pack_name"
+    return 0
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+  grep -v "/$pack_name$" "$LAYERS_FILE" >"$tmp" || true
+  mv "$tmp" "$LAYERS_FILE"
+  ok "Disabled: $pack_name"
+
+  echo ""
+  echo "  Active layers (highest precedence first):"
+  print_layers
+}
+
+cmd_list() {
+  ensure_layers_file
+
+  echo "  Active layers (highest precedence first):"
+  if [[ -s "$LAYERS_FILE" ]]; then
+    print_layers
+  else
+    echo "    (none)"
+  fi
+
+  echo ""
+  echo "  Available packs:"
+  local found_any=false
+  for repo in "$PACKS_DIR"/*/; do
+    [[ -d "$repo" ]] || continue
+    local real_repo
+    real_repo="$(cd "$repo" && pwd -P)"
+    list_packs_in "$real_repo" | while read -r pack; do
+      local pack_path="$real_repo/packs/$pack"
+      if ! grep -qFx "$pack_path" "$LAYERS_FILE" 2>/dev/null; then
+        echo "    - $pack  ($pack_path)"
+        found_any=true
+      fi
+    done
+  done
+
+  if [[ "$found_any" == false ]] && [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; then
+    echo "    (none — run 'devenv-conventions clone <repo-url>' to add packs)"
+  fi
+}
+
+cmd_update() {
+  if [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; then
+    echo "  No convention repos to update."
+    return 0
+  fi
+
+  for entry in "$PACKS_DIR"/*/; do
+    [[ -d "$entry" ]] || continue
+    local real_path
+    real_path="$(cd "$entry" && pwd -P)"
+    local name
+    name="$(basename "$entry")"
+
+    if [[ ! -d "$real_path/.git" ]]; then
+      warn "$name: not a git repo, skipping"
+      continue
+    fi
+
+    echo "  Updating $name..."
+    if git -C "$real_path" pull --ff-only 2>/dev/null; then
+      ok "$name: updated"
+    else
+      warn "$name: fast-forward failed — resolve manually in $real_path"
+    fi
+  done
+}
+
+cmd_reorder() {
+  local pack_name="$1"
+  local target_pos="$2"
+  ensure_layers_file
+
+  # Read current layers into array
+  local -a layers=()
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    layers+=("$line")
+  done <"$LAYERS_FILE"
+
+  # Find the pack's current position
+  local current_idx=-1
+  local pack_line=""
+  for i in "${!layers[@]}"; do
+    if [[ "${layers[$i]}" == *"/$pack_name" ]]; then
+      current_idx=$i
+      pack_line="${layers[$i]}"
+      break
+    fi
+  done
+
+  if [[ $current_idx -eq -1 ]]; then
+    echo "  Pack not in active layers: $pack_name"
+    echo "  Run 'devenv-conventions enable $pack_name' first."
+    return 1
+  fi
+
+  # Remove from current position
+  local -a new_layers=()
+  for i in "${!layers[@]}"; do
+    [[ $i -ne $current_idx ]] && new_layers+=("${layers[$i]}")
+  done
+
+  # Clamp target position (1-based)
+  local max=${#new_layers[@]}
+  ((max++))
+  [[ $target_pos -lt 1 ]] && target_pos=1
+  [[ $target_pos -gt $max ]] && target_pos=$max
+
+  # Insert at target position (convert to 0-based)
+  local insert_idx=$((target_pos - 1))
+  local -a final_layers=()
+  local inserted=false
+  for i in "${!new_layers[@]}"; do
+    if [[ $i -eq $insert_idx ]] && [[ "$inserted" == false ]]; then
+      final_layers+=("$pack_line")
+      inserted=true
+    fi
+    final_layers+=("${new_layers[$i]}")
+  done
+  [[ "$inserted" == false ]] && final_layers+=("$pack_line")
+
+  # Write atomically
+  local tmp
+  tmp=$(mktemp)
+  printf '%s\n' "${final_layers[@]}" >"$tmp"
+  mv "$tmp" "$LAYERS_FILE"
+  ok "Moved $pack_name to position $target_pos"
+
+  echo ""
+  echo "  Active layers (highest precedence first):"
+  print_layers
+}
+
+# ── Usage ────────────────────────────────────────────────────────────────────
+usage() {
+  cat <<EOF
+Usage: devenv-conventions <command> [args]
+
+Commands:
+  install                    First-time setup (register repo, create layers file)
+  clone <repo-url>           Clone a conventions repo
+  enable <pack>              Activate a convention pack
+  disable <pack>             Deactivate a convention pack
+  list                       Show active layers and available packs
+  update                     Pull latest changes for all cloned repos
+  reorder <pack> <position>  Move a pack to a given precedence position
+  help                       Show this help
+EOF
+  exit 1
+}
+
+# ── Dispatch ─────────────────────────────────────────────────────────────────
+[[ $# -ge 1 ]] || usage
+
+case "$1" in
+install) cmd_install ;;
+clone)
+  [[ $# -ge 2 ]] || usage
+  cmd_clone "$2"
+  ;;
+enable)
+  [[ $# -ge 2 ]] || usage
+  cmd_enable "$2"
+  ;;
+disable)
+  [[ $# -ge 2 ]] || usage
+  cmd_disable "$2"
+  ;;
+list) cmd_list ;;
+update) cmd_update ;;
+reorder)
+  [[ $# -ge 3 ]] || usage
+  cmd_reorder "$2" "$3"
+  ;;
+help | --help | -h) usage ;;
+*) usage ;;
+esac
