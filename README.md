@@ -2,6 +2,10 @@
 
 Convention packs for [devenv](https://github.com/minusblindfold/devenv) — reusable sets of convention docs that guide Claude Code skills during planning, design, and implementation.
 
+## Prerequisites
+
+This repo extends [devenv](https://github.com/minusblindfold/devenv) — a personal dev environment that provides Claude Code skills (`/plan`, `/design`, `/implement`, `/bootstrap`, `/research`) and the convention resolution system they rely on. Install devenv first, then use this repo to add convention packs.
+
 ## What are convention packs?
 
 Convention packs are organized collections of markdown files that tell Claude Code *how* to build things: coding patterns, project structure, naming rules, architectural decisions. Each pack targets a specific technology stack or concern.
