@@ -2,15 +2,15 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLI_SRC="$REPO_DIR/bin/devenv-conventions"
-CLI_DST="$HOME/.local/bin/devenv-conventions"
+CLI_SRC="$REPO_DIR/bin/devenv-rules"
+CLI_DST="$HOME/.local/bin/devenv-rules"
 
 info() { echo "  [ .. ] $1"; }
 ok() { echo "  [ ok ] $1"; }
 warn() { echo "  [warn] $1"; }
 
 echo ""
-echo "Installing devenv-conventions"
+echo "Installing devenv-rules"
 echo "────────────────────────────────────────"
 
 # ── Symlink CLI ──────────────────────────────────────────────────────────────
@@ -26,12 +26,19 @@ else
   ok "Linked: $CLI_DST → $CLI_SRC"
 fi
 
+# ── Clean up old convention symlink if present ───────────────────────────────
+OLD_DST="$HOME/.local/bin/devenv-conventions"
+if [ -L "$OLD_DST" ]; then
+  rm "$OLD_DST"
+  warn "Removed old symlink: $OLD_DST"
+fi
+
 # ── Run install subcommand ───────────────────────────────────────────────────
 info "Registering repo and setting up directories..."
 "$CLI_SRC" install
 
 echo ""
 echo "────────────────────────────────────────"
-echo "  Done! Run 'devenv-conventions list' to see available packs."
-echo "  Then 'devenv-conventions enable <pack>' to activate one."
+echo "  Done! Run 'devenv-rules list' to see available packs."
+echo "  Then 'devenv-rules enable <pack>' to activate one."
 echo ""
