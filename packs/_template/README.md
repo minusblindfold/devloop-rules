@@ -45,10 +45,10 @@ Concrete code showing the rule in practice.
 
 ## Tips
 
-- Start with `stack.md` — `/bootstrap` requires it to scaffold a project.
+- Start with `stack.md` — `/dl:bootstrap` requires it to scaffold a project.
 - Keep rules focused — one concern per file.
 - The `## Rules` section is what skills follow most closely. Be specific.
-- The `## Bootstrap` section tells `/bootstrap` what files to generate. Omit it for rules that only matter during feature work.
+- The `## Bootstrap` section tells `/dl:bootstrap` what files to generate. Omit it for rules that only matter during feature work.
 - Use `## Example` to show the pattern concretely — this helps the model understand intent.
 
 ## Naming rules
