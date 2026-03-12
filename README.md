@@ -2,17 +2,17 @@
 
 Rule packs are collections of markdown files that describe how to build things in a specific stack — coding patterns, project structure, naming rules, architectural decisions. Claude Code reads them at runtime while planning, designing, and implementing features.
 
-This repo provides packs and a CLI for managing them. It extends [devenv](https://github.com/minusblindfold/devenv).
+This repo provides packs and a CLI for managing them. It extends [devloop](https://github.com/minusblindfold/devloop).
 
-## How it connects to devenv
+## How it connects to devloop
 
-devenv provides Claude Code skills (`/plan`, `/design`, `/implement`, `/bootstrap`). Those skills call `/resolve-rules` at runtime to find relevant rules. This repo provides organized rule packs that get discovered through that resolution.
+[devloop](https://github.com/minusblindfold/devloop) is a Claude Code plugin that provides workflow skills (`/dl:plan`, `/dl:design`, `/dl:implement`, `/dl:bootstrap`). Those skills call `/resolve-rules` at runtime to find relevant rules. This repo provides organized rule packs that get discovered through that resolution.
 
-Without this repo, devenv works fine — skills operate from codebase context alone. This repo adds stack-specific guidance so the agent follows consistent patterns.
+Without this repo, devloop works fine — skills operate from codebase context alone. This repo adds stack-specific guidance so the agent follows consistent patterns.
 
 ## Quickstart
 
-Requires [devenv](https://github.com/minusblindfold/devenv) installed first.
+Requires the [devloop](https://github.com/minusblindfold/devloop) plugin installed first.
 
 ```bash
 git clone https://github.com/minusblindfold/devloop-rules.git
@@ -51,7 +51,7 @@ Skills will now apply those rules when planning, designing, and implementing fea
 
 ## How layering works
 
-When you enable a pack, its path is added to `~/.config/devenv/rule-layers`. devenv's `/resolve-rules` skill reads this file and walks layer paths in order — first line is highest precedence.
+When you enable a pack, its path is added to `~/.config/devenv/rule-layers`. devloop's `/resolve-rules` skill reads this file and walks layer paths in order — first line is highest precedence.
 
 Flat files in `~/.claude/rules/` always serve as the lowest-precedence fallback. This means you can:
 
