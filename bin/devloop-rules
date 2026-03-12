@@ -104,7 +104,7 @@ cmd_clone() {
 
   if [[ -d "$dst" ]] || [[ -L "$dst" ]]; then
     warn "Already exists: $dst"
-    echo "  Run 'devenv-rules update' to pull latest changes."
+    echo "  Run 'devloop-rules update' to pull latest changes."
     return 1
   fi
 
@@ -117,7 +117,7 @@ cmd_clone() {
     echo "    - $pack"
   done
   echo ""
-  echo "  Run 'devenv-rules enable <pack>' to activate."
+  echo "  Run 'devloop-rules enable <pack>' to activate."
 }
 
 cmd_enable() {
@@ -140,7 +140,7 @@ cmd_enable() {
 
   if [[ -z "$pack_path" ]]; then
     echo "  Pack not found: $pack_name"
-    echo "  Run 'devenv-rules list' to see available packs."
+    echo "  Run 'devloop-rules list' to see available packs."
     return 1
   fi
 
@@ -203,7 +203,7 @@ cmd_list() {
   done
 
   if [[ "$found_any" == false ]] && [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; then
-    echo "    (none — run 'devenv-rules clone <repo-url>' to add packs)"
+    echo "    (none — run 'devloop-rules clone <repo-url>' to add packs)"
   fi
 }
 
@@ -259,7 +259,7 @@ cmd_reorder() {
 
   if [[ $current_idx -eq -1 ]]; then
     echo "  Pack not in active layers: $pack_name"
-    echo "  Run 'devenv-rules enable $pack_name' first."
+    echo "  Run 'devloop-rules enable $pack_name' first."
     return 1
   fi
 
@@ -303,7 +303,7 @@ cmd_reorder() {
 # ── Usage ────────────────────────────────────────────────────────────────────
 usage() {
   cat <<EOF
-Usage: devenv-rules <command> [args]
+Usage: devloop-rules <command> [args]
 
 Commands:
   install                    First-time setup (register repo, create layers file)

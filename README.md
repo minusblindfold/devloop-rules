@@ -1,4 +1,4 @@
-# devenv-rules
+# devloop-rules
 
 Rule packs are collections of markdown files that describe how to build things in a specific stack — coding patterns, project structure, naming rules, architectural decisions. Claude Code reads them at runtime while planning, designing, and implementing features.
 
@@ -15,8 +15,8 @@ Without this repo, devenv works fine — skills operate from codebase context al
 Requires [devenv](https://github.com/minusblindfold/devenv) installed first.
 
 ```bash
-git clone https://github.com/minusblindfold/devenv-rules.git
-cd devenv-rules
+git clone https://github.com/minusblindfold/devloop-rules.git
+cd devloop-rules
 ./install.sh
 ```
 
@@ -25,7 +25,7 @@ This symlinks the CLI to `~/.local/bin/`, registers the repo, and creates the la
 Then enable a pack:
 
 ```bash
-devenv-rules enable spring-boot-web
+devloop-rules enable spring-boot-web
 ```
 
 Skills will now apply those rules when planning, designing, and implementing features in that stack.
@@ -41,13 +41,13 @@ Skills will now apply those rules when planning, designing, and implementing fea
 
 | Command | What it does |
 |---------|-------------|
-| `devenv-rules install` | First-time setup (called by `install.sh`) |
-| `devenv-rules enable <pack>` | Activate a pack |
-| `devenv-rules disable <pack>` | Deactivate a pack |
-| `devenv-rules list` | Show active layers and available packs |
-| `devenv-rules clone <repo-url>` | Clone another rules repo |
-| `devenv-rules update` | Pull latest for all cloned repos |
-| `devenv-rules reorder <pack> <pos>` | Change a pack's precedence position |
+| `devloop-rules install` | First-time setup (called by `install.sh`) |
+| `devloop-rules enable <pack>` | Activate a pack |
+| `devloop-rules disable <pack>` | Deactivate a pack |
+| `devloop-rules list` | Show active layers and available packs |
+| `devloop-rules clone <repo-url>` | Clone another rules repo |
+| `devloop-rules update` | Pull latest for all cloned repos |
+| `devloop-rules reorder <pack> <pos>` | Change a pack's precedence position |
 
 ## How layering works
 
