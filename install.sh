@@ -2,15 +2,15 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLI_SRC="$REPO_DIR/bin/devloop-rules"
-CLI_DST="$HOME/.local/bin/devloop-rules"
+CLI_SRC="$REPO_DIR/bin/devloop"
+CLI_DST="$HOME/.local/bin/devloop"
 
 info() { echo "  [ .. ] $1"; }
 ok() { echo "  [ ok ] $1"; }
 warn() { echo "  [warn] $1"; }
 
 echo ""
-echo "Installing devloop-rules"
+echo "Installing devloop"
 echo "────────────────────────────────────────"
 
 # ── Symlink CLI ──────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ else
 fi
 
 # ── Clean up old symlinks if present ─────────────────────────────────────────
-for old_name in devenv-conventions devenv-rules; do
+for old_name in devenv-conventions devenv-rules devloop-rules; do
   OLD_DST="$HOME/.local/bin/$old_name"
   if [ -L "$OLD_DST" ]; then
     rm "$OLD_DST"
@@ -41,6 +41,6 @@ info "Registering repo and setting up directories..."
 
 echo ""
 echo "────────────────────────────────────────"
-echo "  Done! Run 'devloop-rules list' to see available packs."
-echo "  Then 'devloop-rules enable <pack>' to activate one."
+echo "  Done! Run 'devloop rules list' to see available packs."
+echo "  Then 'devloop rules enable <pack>' to activate one."
 echo ""

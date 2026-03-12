@@ -31,7 +31,7 @@ cd devloop-rules
 Then enable a pack:
 
 ```bash
-devloop-rules enable git-conventions
+devloop rules enable git-conventions
 ```
 
 Skills will now apply those rules when planning, designing, and implementing features. See [docs/install.md](docs/install.md) for prerequisites, what gets created where, and troubleshooting.
@@ -48,13 +48,13 @@ Skills will now apply those rules when planning, designing, and implementing fea
 
 | Command | What it does |
 |---------|-------------|
-| `devloop-rules install` | First-time setup (called by `install.sh`) |
-| `devloop-rules enable <pack>` | Activate a pack |
-| `devloop-rules disable <pack>` | Deactivate a pack |
-| `devloop-rules list` | Show active layers and available packs |
-| `devloop-rules clone <repo-url>` | Clone another rules repo |
-| `devloop-rules update` | Pull latest for all cloned repos |
-| `devloop-rules reorder <pack> <pos>` | Change a pack's precedence position |
+| `devloop rules install` | First-time setup (called by `install.sh`) |
+| `devloop rules enable <pack>` | Activate a pack |
+| `devloop rules disable <pack>` | Deactivate a pack |
+| `devloop rules list` | Show active layers and available packs |
+| `devloop rules clone <repo-url>` | Clone another rules repo |
+| `devloop rules update` | Pull latest for all cloned repos |
+| `devloop rules reorder <pack> <pos>` | Change a pack's precedence position |
 
 ## How layering works
 

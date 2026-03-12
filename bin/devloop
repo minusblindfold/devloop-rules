@@ -106,7 +106,7 @@ cmd_clone() {
 
   if [[ -d "$dst" ]] || [[ -L "$dst" ]]; then
     warn "Already exists: $dst"
-    echo "  Run 'devloop-rules update' to pull latest changes."
+    echo "  Run 'devloop rules update' to pull latest changes."
     return 1
   fi
 
@@ -119,7 +119,7 @@ cmd_clone() {
     echo "    - $pack"
   done
   echo ""
-  echo "  Run 'devloop-rules enable <pack>' to activate."
+  echo "  Run 'devloop rules enable <pack>' to activate."
 }
 
 cmd_enable() {
@@ -142,7 +142,7 @@ cmd_enable() {
 
   if [[ -z "$pack_path" ]]; then
     echo "  Pack not found: $pack_name"
-    echo "  Run 'devloop-rules list' to see available packs."
+    echo "  Run 'devloop rules list' to see available packs."
     return 1
   fi
 
@@ -205,7 +205,7 @@ cmd_list() {
   done
 
   if [[ "$found_any" == false ]] && [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; then
-    echo "    (none — run 'devloop-rules clone <repo-url>' to add packs)"
+    echo "    (none — run 'devloop rules clone <repo-url>' to add packs)"
   fi
 }
 
@@ -261,7 +261,7 @@ cmd_reorder() {
 
   if [[ $current_idx -eq -1 ]]; then
     echo "  Pack not in active layers: $pack_name"
-    echo "  Run 'devloop-rules enable $pack_name' first."
+    echo "  Run 'devloop rules enable $pack_name' first."
     return 1
   fi
 
@@ -305,7 +305,24 @@ cmd_reorder() {
 # ── Usage ────────────────────────────────────────────────────────────────────
 usage() {
   cat <<EOF
-Usage: devloop-rules <command> [args]
+Usage: devloop <command> [subcommand] [args]
+
+Commands:
+  rules install                    First-time setup (register repo, create layers file)
+  rules clone <repo-url>           Clone a rules repo
+  rules enable <pack>              Activate a rule pack
+  rules disable <pack>             Deactivate a rule pack
+  rules list                       Show active layers and available packs
+  rules update                     Pull latest changes for all cloned repos
+  rules reorder <pack> <position>  Move a pack to a given precedence position
+  help                             Show this help
+EOF
+  exit 1
+}
+
+rules_usage() {
+  cat <<EOF
+Usage: devloop rules <command> [args]
 
 Commands:
   install                    First-time setup (register repo, create layers file)
@@ -324,24 +341,31 @@ EOF
 [[ $# -ge 1 ]] || usage
 
 case "$1" in
-install) cmd_install ;;
-clone)
-  [[ $# -ge 2 ]] || usage
-  cmd_clone "$2"
-  ;;
-enable)
-  [[ $# -ge 2 ]] || usage
-  cmd_enable "$2"
-  ;;
-disable)
-  [[ $# -ge 2 ]] || usage
-  cmd_disable "$2"
-  ;;
-list) cmd_list ;;
-update) cmd_update ;;
-reorder)
-  [[ $# -ge 3 ]] || usage
-  cmd_reorder "$2" "$3"
+rules)
+  [[ $# -ge 2 ]] || rules_usage
+  case "$2" in
+  install) cmd_install ;;
+  clone)
+    [[ $# -ge 3 ]] || rules_usage
+    cmd_clone "$3"
+    ;;
+  enable)
+    [[ $# -ge 3 ]] || rules_usage
+    cmd_enable "$3"
+    ;;
+  disable)
+    [[ $# -ge 3 ]] || rules_usage
+    cmd_disable "$3"
+    ;;
+  list) cmd_list ;;
+  update) cmd_update ;;
+  reorder)
+    [[ $# -ge 4 ]] || rules_usage
+    cmd_reorder "$3" "$4"
+    ;;
+  help | --help | -h) rules_usage ;;
+  *) rules_usage ;;
+  esac
   ;;
 help | --help | -h) usage ;;
 *) usage ;;
