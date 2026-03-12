@@ -10,6 +10,14 @@ This repo provides packs and a CLI for managing them. It extends [devloop](https
 
 Without this repo, devloop works fine — skills operate from codebase context alone. This repo adds stack-specific guidance so the agent follows consistent patterns.
 
+## Why packs instead of flat rules
+
+Flat rules in `~/.claude/rules/` are simple — Claude Code loads all of them into every session. That works when you have a handful of files, but as rules grow the context window fills with guidance that isn't relevant to the current task. Agent output degrades when context is crowded with noise.
+
+Packs solve this with keyword-based discovery. Rules live outside `~/.claude/rules/` and are only surfaced by skills when the task description matches a rule's `keywords` frontmatter. A task about entities pulls in `entity.md` — not `security.md`, `migration.md`, or `testing.md`. This keeps the agent's context in the sweet spot: enough guidance to follow your patterns, not so much that it loses focus.
+
+The tradeoff is that packs aren't auto-loaded by Claude Code itself — they only work through devloop's skills. For rules you want available everywhere (not just during skill workflows), keep them as flat files in `~/.claude/rules/`.
+
 ## Quickstart
 
 Requires the [devloop](https://github.com/minusblindfold/devloop) plugin installed first.
