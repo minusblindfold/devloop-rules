@@ -49,24 +49,46 @@ Skills will now apply those rules when planning, designing, and implementing fea
 | Command | What it does |
 |---------|-------------|
 | `devloop rules install` | First-time setup (called by `install.sh`) |
-| `devloop rules enable <pack>` | Activate a pack |
-| `devloop rules disable <pack>` | Deactivate a pack |
-| `devloop rules list` | Show active layers and available packs |
+| `devloop rules enable <pack>` | Activate a pack (symlinks into `~/devloop/rules/`) |
+| `devloop rules disable <pack>` | Deactivate a pack (removes symlink) |
+| `devloop rules list` | Show active and available packs |
 | `devloop rules clone <repo-url>` | Clone another rules repo |
 | `devloop rules update` | Pull latest for all cloned repos |
-| `devloop rules reorder <pack> <pos>` | Change a pack's precedence position |
 
-## How layering works
+## Rule resolution — four-tier precedence
 
-When you enable a pack, its path is added to `~/.config/devenv/rule-layers`. devloop's `/resolve-rules` skill reads this file and walks layer paths in order — first line is highest precedence.
+devloop resolves rules from four layers. When rules conflict, the higher-precedence layer wins.
 
-Flat files in `~/.claude/rules/` always serve as the lowest-precedence fallback. This means you can:
+| Precedence | Layer | Path | Description |
+|---|---|---|---|
+| 1 (highest) | User | `~/.claude/rules/` | Claude Code native, personal overrides |
+| 2 | Project | `{cwd}/devloop/rules/` | Project-specific rules |
+| 3 | Shared/org | `~/devloop/rules/` | Rule packs managed by devloop CLI |
+| 4 (lowest) | Plugin-bundled | `${CLAUDE_PLUGIN_ROOT}/rules/` | Defaults shipped with devloop |
 
-- **Use packs alone** — enable what you need
-- **Use flat files alone** — drop `.md` files in `~/.claude/rules/`
-- **Mix both** — flat files act as the base layer, packs override them
+Packs managed by this CLI live at layer 3. When you run `devloop rules enable <pack>`, a symlink is created in `~/devloop/rules/` pointing to the pack directory. devloop's `/resolve-rules` skill walks all four layers and surfaces matching rules based on keyword frontmatter.
 
-If two packs have a file with the same name, the higher-precedence pack wins. The lower-precedence version is skipped unless it sets `extends: true` in its frontmatter — in that case, both are read (higher-precedence first, then the extension appends).
+Flat files in `~/.claude/rules/` (layer 1) always win — use them for personal overrides you want in every session.
+
+## How enabling/disabling works
+
+When you enable a pack, the CLI creates a symlink:
+
+```
+~/devloop/rules/<pack-name> → <repo>/packs/<pack-name>
+```
+
+When you disable a pack, the symlink is removed. No files are moved or copied — the pack's source stays in the repo.
+
+## Migration from old format
+
+If you previously used devloop-rules with the old path layout (`~/.config/devenv/rule-layers` and `~/.claude/rule-packs/`), running `./install.sh` or `devloop rules install` will automatically migrate:
+
+- Pack repos in `~/.claude/rule-packs/` are re-registered in `~/devloop/rule-packs/`
+- Active packs listed in `~/.config/devenv/rule-layers` are converted to symlinks in `~/devloop/rules/`
+- Old files are cleaned up after successful migration
+
+No manual steps needed — the migration is automatic and idempotent.
 
 ## Creating your own pack
 

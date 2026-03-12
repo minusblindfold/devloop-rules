@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Manage rule packs for devenv
+# Manage rule packs for devloop
 set -euo pipefail
 
-PACKS_DIR="$HOME/.claude/rule-packs"
-LAYERS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/devenv/rule-layers"
+PACKS_DIR="$HOME/devloop/rule-packs"
+RULES_DIR="$HOME/devloop/rules"
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 ok() { echo "  [ ok ] $1"; }
 warn() { echo "  [warn] $1"; }
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-ensure_layers_file() {
-  mkdir -p "$(dirname "$LAYERS_FILE")"
-  [[ -f "$LAYERS_FILE" ]] || touch "$LAYERS_FILE"
+ensure_dirs() {
+  mkdir -p "$PACKS_DIR"
+  mkdir -p "$RULES_DIR"
 }
 
 # Find the repo root for this script (walk up to .git)
@@ -39,30 +39,100 @@ list_packs_in() {
   done
 }
 
-# Print the current layer list numbered by precedence
-print_layers() {
-  if [[ ! -f "$LAYERS_FILE" ]] || [[ ! -s "$LAYERS_FILE" ]]; then
-    echo "  No active layers."
-    return
-  fi
+# Print currently active packs (symlinks in RULES_DIR)
+print_active() {
+  local found=false
   local i=1
-  while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
+  for entry in "$RULES_DIR"/*/; do
+    [[ -L "${entry%/}" ]] || continue
     local name
-    name="$(basename "$line")"
-    if [[ -d "$line" ]]; then
-      echo "  $i. $name  ($line)"
+    name="$(basename "${entry%/}")"
+    local target
+    target="$(readlink "${entry%/}")"
+    if [[ -d "${entry%/}" ]]; then
+      echo "  $i. $name  ($target)"
     else
-      echo "  $i. $name  ($line) (missing)"
+      echo "  $i. $name  ($target) (missing)"
     fi
     i=$((i + 1))
-  done <"$LAYERS_FILE"
+    found=true
+  done
+  if [[ "$found" == false ]]; then
+    echo "  (none)"
+  fi
+}
+
+# ── Migration ────────────────────────────────────────────────────────────────
+migrate_old_paths() {
+  local old_layers="${XDG_CONFIG_HOME:-$HOME/.config}/devenv/rule-layers"
+  local old_packs="$HOME/.claude/rule-packs"
+  local migrated=false
+
+  # Migrate rule-packs from ~/.claude/rule-packs/ to ~/devloop/rule-packs/
+  if [[ -d "$old_packs" ]]; then
+    for entry in "$old_packs"/*/; do
+      [[ -e "$entry" ]] || continue
+      local name
+      name="$(basename "${entry%/}")"
+      local dst="$PACKS_DIR/$name"
+      if [[ -L "${entry%/}" ]]; then
+        local target
+        target="$(readlink "${entry%/}")"
+        if [[ ! -e "$dst" ]]; then
+          ln -sfn "$target" "$dst"
+          ok "Migrated pack repo: $name → $target"
+          migrated=true
+        fi
+      elif [[ -d "$entry" ]]; then
+        if [[ ! -e "$dst" ]]; then
+          cp -R "${entry%/}" "$dst"
+          ok "Migrated pack repo (copy): $name"
+          migrated=true
+        fi
+      fi
+    done
+  fi
+
+  # Migrate rule-layers entries to symlinks in ~/devloop/rules/
+  if [[ -f "$old_layers" ]]; then
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      local name
+      name="$(basename "$line")"
+      local dst="$RULES_DIR/$name"
+      if [[ -d "$line" ]] && [[ ! -e "$dst" ]]; then
+        ln -sfn "$line" "$dst"
+        ok "Migrated active pack: $name → $line"
+        migrated=true
+      fi
+    done <"$old_layers"
+  fi
+
+  # Clean up old files after successful migration
+  if [[ "$migrated" == true ]]; then
+    if [[ -f "$old_layers" ]]; then
+      rm "$old_layers"
+      ok "Removed old layers file: $old_layers"
+      # Remove parent dirs if empty
+      rmdir "${XDG_CONFIG_HOME:-$HOME/.config}/devenv" 2>/dev/null || true
+    fi
+    if [[ -d "$old_packs" ]]; then
+      rm -rf "$old_packs"
+      ok "Removed old packs dir: $old_packs"
+    fi
+    echo ""
+    echo "  Migration complete. Old paths have been cleaned up."
+    echo ""
+  fi
 }
 
 # ── Commands ─────────────────────────────────────────────────────────────────
 
 cmd_install() {
-  mkdir -p "$PACKS_DIR"
+  ensure_dirs
+
+  # Migrate old paths if they exist
+  migrate_old_paths
 
   # Find this script's repo and register it
   local script_dir
@@ -92,8 +162,8 @@ cmd_install() {
     warn "Could not detect repo root — register manually by symlinking into $PACKS_DIR"
   fi
 
-  ensure_layers_file
-  ok "Layers file: $LAYERS_FILE"
+  ok "Rules dir: $RULES_DIR"
+  ok "Packs dir: $PACKS_DIR"
 }
 
 cmd_clone() {
@@ -102,7 +172,7 @@ cmd_clone() {
   repo_name="$(basename "$url" .git)"
   local dst="$PACKS_DIR/$repo_name"
 
-  mkdir -p "$PACKS_DIR"
+  ensure_dirs
 
   if [[ -d "$dst" ]] || [[ -L "$dst" ]]; then
     warn "Already exists: $dst"
@@ -124,7 +194,7 @@ cmd_clone() {
 
 cmd_enable() {
   local pack_name="$1"
-  ensure_layers_file
+  ensure_dirs
 
   # Find the pack across all registered repos
   local pack_path=""
@@ -146,47 +216,41 @@ cmd_enable() {
     return 1
   fi
 
-  if grep -qFx "$pack_path" "$LAYERS_FILE" 2>/dev/null; then
+  local dst="$RULES_DIR/$pack_name"
+  if [[ -L "$dst" ]] && [[ "$(readlink "$dst")" == "$pack_path" ]]; then
     ok "Already enabled: $pack_name"
   else
-    echo "$pack_path" >>"$LAYERS_FILE"
+    ln -sfn "$pack_path" "$dst"
     ok "Enabled: $pack_name"
   fi
 
   echo ""
-  echo "  Active layers (highest precedence first):"
-  print_layers
+  echo "  Active packs:"
+  print_active
 }
 
 cmd_disable() {
   local pack_name="$1"
-  ensure_layers_file
+  local dst="$RULES_DIR/$pack_name"
 
-  if ! grep -q "/$pack_name$" "$LAYERS_FILE" 2>/dev/null; then
+  if [[ ! -L "$dst" ]]; then
     warn "Not active: $pack_name"
     return 0
   fi
 
-  local tmp
-  tmp=$(mktemp)
-  grep -v "/$pack_name$" "$LAYERS_FILE" >"$tmp" || true
-  mv "$tmp" "$LAYERS_FILE"
+  rm "$dst"
   ok "Disabled: $pack_name"
 
   echo ""
-  echo "  Active layers (highest precedence first):"
-  print_layers
+  echo "  Active packs:"
+  print_active
 }
 
 cmd_list() {
-  ensure_layers_file
+  ensure_dirs
 
-  echo "  Active layers (highest precedence first):"
-  if [[ -s "$LAYERS_FILE" ]]; then
-    print_layers
-  else
-    echo "    (none)"
-  fi
+  echo "  Active packs:"
+  print_active
 
   echo ""
   echo "  Available packs:"
@@ -197,14 +261,15 @@ cmd_list() {
     real_repo="$(cd "$repo" && pwd -P)"
     list_packs_in "$real_repo" | while read -r pack; do
       local pack_path="$real_repo/packs/$pack"
-      if ! grep -qFx "$pack_path" "$LAYERS_FILE" 2>/dev/null; then
+      local dst="$RULES_DIR/$pack"
+      if [[ ! -L "$dst" ]]; then
         echo "    - $pack  ($pack_path)"
         found_any=true
       fi
     done
   done
 
-  if [[ "$found_any" == false ]] && [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; then
+  if [[ "$found_any" == false ]] && { [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; }; then
     echo "    (none — run 'devloop rules clone <repo-url>' to add packs)"
   fi
 }
@@ -236,85 +301,18 @@ cmd_update() {
   done
 }
 
-cmd_reorder() {
-  local pack_name="$1"
-  local target_pos="$2"
-  ensure_layers_file
-
-  # Read current layers into array
-  local -a layers=()
-  while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
-    layers+=("$line")
-  done <"$LAYERS_FILE"
-
-  # Find the pack's current position
-  local current_idx=-1
-  local pack_line=""
-  for i in "${!layers[@]}"; do
-    if [[ "${layers[$i]}" == *"/$pack_name" ]]; then
-      current_idx=$i
-      pack_line="${layers[$i]}"
-      break
-    fi
-  done
-
-  if [[ $current_idx -eq -1 ]]; then
-    echo "  Pack not in active layers: $pack_name"
-    echo "  Run 'devloop rules enable $pack_name' first."
-    return 1
-  fi
-
-  # Remove from current position
-  local -a new_layers=()
-  for i in "${!layers[@]}"; do
-    [[ $i -ne $current_idx ]] && new_layers+=("${layers[$i]}")
-  done
-
-  # Clamp target position (1-based)
-  local max=${#new_layers[@]}
-  ((max++))
-  [[ $target_pos -lt 1 ]] && target_pos=1
-  [[ $target_pos -gt $max ]] && target_pos=$max
-
-  # Insert at target position (convert to 0-based)
-  local insert_idx=$((target_pos - 1))
-  local -a final_layers=()
-  local inserted=false
-  for i in "${!new_layers[@]}"; do
-    if [[ $i -eq $insert_idx ]] && [[ "$inserted" == false ]]; then
-      final_layers+=("$pack_line")
-      inserted=true
-    fi
-    final_layers+=("${new_layers[$i]}")
-  done
-  [[ "$inserted" == false ]] && final_layers+=("$pack_line")
-
-  # Write atomically
-  local tmp
-  tmp=$(mktemp)
-  printf '%s\n' "${final_layers[@]}" >"$tmp"
-  mv "$tmp" "$LAYERS_FILE"
-  ok "Moved $pack_name to position $target_pos"
-
-  echo ""
-  echo "  Active layers (highest precedence first):"
-  print_layers
-}
-
 # ── Usage ────────────────────────────────────────────────────────────────────
 usage() {
   cat <<EOF
 Usage: devloop <command> [subcommand] [args]
 
 Commands:
-  rules install                    First-time setup (register repo, create layers file)
+  rules install                    First-time setup (register repo, create directories)
   rules clone <repo-url>           Clone a rules repo
   rules enable <pack>              Activate a rule pack
   rules disable <pack>             Deactivate a rule pack
-  rules list                       Show active layers and available packs
+  rules list                       Show active and available packs
   rules update                     Pull latest changes for all cloned repos
-  rules reorder <pack> <position>  Move a pack to a given precedence position
   help                             Show this help
 EOF
   exit 1
@@ -325,13 +323,12 @@ rules_usage() {
 Usage: devloop rules <command> [args]
 
 Commands:
-  install                    First-time setup (register repo, create layers file)
+  install                    First-time setup (register repo, create directories)
   clone <repo-url>           Clone a rules repo
   enable <pack>              Activate a rule pack
   disable <pack>             Deactivate a rule pack
-  list                       Show active layers and available packs
+  list                       Show active and available packs
   update                     Pull latest changes for all cloned repos
-  reorder <pack> <position>  Move a pack to a given precedence position
   help                       Show this help
 EOF
   exit 1
@@ -359,10 +356,6 @@ rules)
     ;;
   list) cmd_list ;;
   update) cmd_update ;;
-  reorder)
-    [[ $# -ge 4 ]] || rules_usage
-    cmd_reorder "$3" "$4"
-    ;;
   help | --help | -h) rules_usage ;;
   *) rules_usage ;;
   esac
