@@ -2,6 +2,8 @@
 
 ## Prerequisites
 
+- **macOS / Linux** — works natively
+- **Windows** — use [Git Bash](https://git-scm.com/downloads) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install). The CLI and install script require a Unix-like shell.
 - [Claude Code](https://claude.ai/claude-code) installed
 - The [devloop](https://github.com/minusblindfold/devloop) plugin installed:
   ```bash
