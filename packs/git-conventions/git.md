@@ -1,6 +1,6 @@
 ---
 keywords: [git, commit, branch, push, merge, squash, pull request, PR]
-scope: all
+scope: always
 ---
 # Git Workflow Conventions
 
