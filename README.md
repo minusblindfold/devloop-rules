@@ -28,20 +28,19 @@ cd devloop-rules
 ./install.sh
 ```
 
-This symlinks the CLI to `~/.local/bin/`, registers the repo, and creates the layers file at `~/.config/devenv/rule-layers`.
-
 Then enable a pack:
 
 ```bash
-devloop-rules enable spring-boot-web
+devloop-rules enable git-conventions
 ```
 
-Skills will now apply those rules when planning, designing, and implementing features in that stack.
+Skills will now apply those rules when planning, designing, and implementing features. See [docs/install.md](docs/install.md) for prerequisites, what gets created where, and troubleshooting.
 
 ## Available packs
 
 | Pack | Description |
 |------|-------------|
+| `git-conventions` | Git workflow preferences — feature branching, commit message format, squash before push, auto PR creation. |
 | `spring-boot-web` | Spring Boot + Thymeleaf + Liquibase + PostgreSQL + Docker. Covers entities, services, controllers, security, migrations, templates, and testing. |
 | `_template` | Skeleton for creating your own pack. Copy and customize. |
 
@@ -91,13 +90,13 @@ extends: false    # true to append to a higher-precedence version
 - Patterns to follow
 
 ## Bootstrap
-- What gets scaffolded during /bootstrap
+- What gets scaffolded during /dl:bootstrap
 
 ## Example
 - Concrete code showing the pattern
 ```
 
-The `keywords` field is how skills find relevant rules — `/implement` matches task descriptions against these terms. `scope` controls when the rule applies: during bootstrapping, feature work, or both.
+The `keywords` field is how skills find relevant rules — `/dl:implement` matches task descriptions against these terms. `scope` controls when the rule applies: during bootstrapping, feature work, or both.
 
 See `packs/_template/README.md` for the full format spec.
 
