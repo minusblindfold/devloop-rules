@@ -9,6 +9,18 @@ RULES_DIR="$HOME/devloop/rules"
 ok() { echo "  [ ok ] $1"; }
 warn() { echo "  [warn] $1"; }
 
+# ── Color helpers ────────────────────────────────────────────────────────────
+if [[ -t 1 ]]; then
+  _bold='\033[1m'
+  _dim='\033[2m'
+  _green='\033[32m'
+  _yellow='\033[33m'
+  _cyan='\033[36m'
+  _reset='\033[0m'
+else
+  _bold='' _dim='' _green='' _yellow='' _cyan='' _reset=''
+fi
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 ensure_dirs() {
   mkdir -p "$PACKS_DIR"
@@ -39,27 +51,52 @@ list_packs_in() {
   done
 }
 
-# Print currently active packs (symlinks in RULES_DIR)
-print_active() {
-  local found=false
-  local i=1
-  for entry in "$RULES_DIR"/*/; do
-    [[ -L "${entry%/}" ]] || continue
-    local name
-    name="$(basename "${entry%/}")"
-    local target
-    target="$(readlink "${entry%/}")"
-    if [[ -d "${entry%/}" ]]; then
-      echo "  $i. $name  ($target)"
-    else
-      echo "  $i. $name  ($target) (missing)"
-    fi
-    i=$((i + 1))
-    found=true
+# Extract one-line description from a rule's blockquote (> line after H1)
+rule_desc() {
+  local file="$1"
+  sed -n '/^> /{s/^> *//;p;q;}' "$file" 2>/dev/null
+}
+
+# Count .md rule files in a directory (excluding rules.md)
+rule_count() {
+  local dir="$1"
+  local count=0
+  for f in "$dir"/*.md; do
+    [[ -f "$f" ]] || continue
+    [[ "$(basename "$f")" == "rules.md" ]] && continue
+    count=$((count + 1))
   done
-  if [[ "$found" == false ]]; then
-    echo "  (none)"
+  echo "$count"
+}
+
+# Truncate string to max length, adding … if needed
+truncate() {
+  local str="$1" max="${2:-40}"
+  if [[ ${#str} -gt $max ]]; then
+    echo "${str:0:$((max - 1))}…"
+  else
+    echo "$str"
   fi
+}
+
+# List rule names in a directory (excluding rules.md), comma-separated
+rule_names() {
+  local dir="$1"
+  local names=()
+  for f in "$dir"/*.md; do
+    [[ -f "$f" ]] || continue
+    [[ "$(basename "$f")" == "rules.md" ]] && continue
+    names+=("$(basename "$f" .md)")
+  done
+  local IFS=','
+  echo "${names[*]}" | sed 's/,/, /g'
+}
+
+# Print a table row
+print_row() {
+  local icon="$1" name="$2" count="$3" rules="$4"
+  rules="$(truncate "$rules" 44)"
+  printf "  %b  ${_bold}%-18s${_reset} ${_dim}%2s${_reset}  ${_dim}%s${_reset}\n" "$icon" "$name" "$count" "$rules"
 }
 
 # ── Migration ────────────────────────────────────────────────────────────────
@@ -224,9 +261,7 @@ cmd_enable() {
     ok "Enabled: $pack_name"
   fi
 
-  echo ""
-  echo "  Active packs:"
-  print_active
+  cmd_list
 }
 
 cmd_disable() {
@@ -241,37 +276,58 @@ cmd_disable() {
   rm "$dst"
   ok "Disabled: $pack_name"
 
-  echo ""
-  echo "  Active packs:"
-  print_active
+  cmd_list
 }
 
 cmd_list() {
   ensure_dirs
-
-  echo "  Active packs:"
-  print_active
-
   echo ""
-  echo "  Available packs:"
-  local found_any=false
+  printf "  ${_bold}%-22s  %-4s  %s${_reset}\n" "PACK" "#" "RULES"
+
+  # Project-level rules
+  local project_rules="$PWD/devloop/rules"
+  if [[ -d "$project_rules" ]]; then
+    local count names
+    count="$(rule_count "$project_rules")"
+    if [[ "$count" -gt 0 ]]; then
+      names="$(rule_names "$project_rules")"
+      print_row "${_cyan}◆${_reset}" "project" "$count" "$names"
+    fi
+  fi
+
+  # Active packs
+  local found=false
+  for entry in "$RULES_DIR"/*/; do
+    [[ -L "${entry%/}" ]] || continue
+    found=true
+    local name count names
+    name="$(basename "${entry%/}")"
+    count="$(rule_count "${entry%/}")"
+    names="$(rule_names "${entry%/}")"
+    print_row "${_green}●${_reset}" "$name" "$count" "$names"
+  done
+
+  # Available (inactive) packs
   for repo in "$PACKS_DIR"/*/; do
     [[ -d "$repo" ]] || continue
     local real_repo
     real_repo="$(cd "$repo" && pwd -P)"
     list_packs_in "$real_repo" | while read -r pack; do
-      local pack_path="$real_repo/packs/$pack"
       local dst="$RULES_DIR/$pack"
       if [[ ! -L "$dst" ]]; then
-        echo "    - $pack  ($pack_path)"
-        found_any=true
+        local pack_path="$real_repo/packs/$pack"
+        local count names
+        count="$(rule_count "$pack_path")"
+        names="$(rule_names "$pack_path")"
+        print_row "${_dim}○${_reset}" "$pack" "$count" "$names"
       fi
     done
   done
 
-  if [[ "$found_any" == false ]] && { [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; }; then
-    echo "    (none — run 'devloop rules clone <repo-url>' to add packs)"
+  if [[ "$found" == false ]] && [[ ! -d "$project_rules" || "$(rule_count "$project_rules" 2>/dev/null)" == "0" ]]; then
+    printf "  ${_dim}(none — run 'devloop rules enable <pack>' to activate)${_reset}\n"
   fi
+  echo ""
 }
 
 cmd_update() {
