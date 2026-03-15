@@ -101,7 +101,7 @@ Each rule file has YAML frontmatter and markdown content:
 ```yaml
 ---
 keywords: [service, business logic, validation]
-scope: all        # bootstrap | feature | all
+scope: all        # bootstrap | feature | all | always
 extends: false    # true to append to a higher-precedence version
 ---
 # Service Rules
@@ -118,7 +118,7 @@ extends: false    # true to append to a higher-precedence version
 - Concrete code showing the pattern
 ```
 
-The `keywords` field is how skills find relevant rules — `/dl:implement` matches task descriptions against these terms. `scope` controls when the rule applies: during bootstrapping, feature work, or both.
+The `keywords` field is how skills find relevant rules — `/dl:implement` matches task descriptions against these terms. `scope` controls when the rule applies: during bootstrapping, feature work, both, or `always` (included in every skill invocation regardless of keyword matching).
 
 See `packs/_template/README.md` for the full format spec.
 

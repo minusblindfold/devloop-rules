@@ -14,7 +14,7 @@ A rule pack is a directory of markdown files that guide Claude Code skills durin
 ```markdown
 ---
 keywords: [service, business logic, validation]   # Required — terms for discovery
-scope: all                                         # Optional — bootstrap | feature | all (default: all)
+scope: all                                         # Optional — bootstrap | feature | all | always (default: all)
 extends: false                                     # Optional — append to higher-precedence version (default: false)
 ---
 # Rule Title
@@ -40,7 +40,7 @@ Concrete code showing the rule in practice.
 | Field | Required | Values | Description |
 |---|---|---|---|
 | `keywords` | Yes | Array of strings | Skills match task descriptions against these to find relevant rules. |
-| `scope` | No | `bootstrap`, `feature`, `all` | When this rule applies. `bootstrap` = only during scaffolding. `feature` = only during feature work. `all` = both. Default: `all`. |
+| `scope` | No | `bootstrap`, `feature`, `all`, `always` | When this rule applies. `bootstrap` = only during scaffolding. `feature` = only during feature work. `all` = both. `always` = included in every skill invocation, bypasses keyword matching. Default: `all`. |
 | `extends` | No | `true`, `false` | When layering, if true this rule appends to a higher-precedence version with the same filename instead of being overridden. Default: `false`. |
 
 ## Tips
